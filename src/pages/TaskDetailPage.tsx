@@ -24,19 +24,31 @@ const TaskDetailPage = () => {
 
   const fetchTask = async () => {
     if (!id) return;
-    const { data } = await supabase
+    const { data: taskData } = await supabase
       .from('tasks')
-      .select('*, assigned_user:profiles!tasks_assigned_to_fkey(*)')
+      .select('*')
       .eq('id', id)
       .single();
-    setTask(data);
+    
+    if (taskData) {
+      const { data: profileData } = await supabase.from('profiles').select('*').eq('id', taskData.assigned_to).single();
+      setTask({ ...taskData, assigned_user: profileData } as Task);
+    }
 
     const { data: commentsData } = await supabase
       .from('comments')
-      .select('*, user:profiles!comments_user_id_fkey(*)')
+      .select('*')
       .eq('task_id', id)
       .order('created_at', { ascending: true });
-    setComments(commentsData || []);
+    
+    if (commentsData && commentsData.length > 0) {
+      const commentUserIds = [...new Set(commentsData.map(c => c.user_id))];
+      const { data: commentProfiles } = await supabase.from('profiles').select('*').in('id', commentUserIds);
+      const profileMap = Object.fromEntries((commentProfiles || []).map(p => [p.id, p]));
+      setComments(commentsData.map(c => ({ ...c, user: profileMap[c.user_id] || null })) as Comment[]);
+    } else {
+      setComments([]);
+    }
 
     const { data: attachmentsData } = await supabase
       .from('attachments')
