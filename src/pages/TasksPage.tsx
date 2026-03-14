@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PlusCircle, Search } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Task, TaskStatus } from '@/types';
 import StatusBadge from '@/components/StatusBadge';
@@ -19,12 +19,22 @@ const TasksPage = () => {
 
   useEffect(() => {
     const fetchTasks = async () => {
-      let query = supabase.from('tasks').select('*, assigned_user:profiles!tasks_assigned_to_fkey(*)');
+      let query = supabase.from('tasks').select('*');
       if (role !== 'admin') {
         query = query.eq('assigned_to', user?.id);
       }
-      const { data } = await query.order('created_at', { ascending: false });
-      setTasks(data || []);
+      const { data: tasksData } = await query.order('created_at', { ascending: false });
+      if (!tasksData) { setTasks([]); return; }
+
+      // Fetch profiles for assigned users
+      const userIds = [...new Set(tasksData.map(t => t.assigned_to))];
+      const { data: profiles } = await supabase.from('profiles').select('*').in('id', userIds);
+      const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p]));
+
+      setTasks(tasksData.map(t => ({
+        ...t,
+        assigned_user: profileMap[t.assigned_to] || null,
+      })) as Task[]);
     };
 
     if (user) fetchTasks();
