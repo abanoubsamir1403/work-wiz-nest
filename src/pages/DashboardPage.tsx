@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ListTodo, CheckCircle, Clock, AlertTriangle, Users } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import StatCard from '@/components/StatCard';
 import StatusBadge from '@/components/StatusBadge';
